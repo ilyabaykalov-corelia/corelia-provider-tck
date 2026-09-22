@@ -15,7 +15,7 @@ import ru.corelia.provider.model.WorkflowTask;
 
 /** Подготовка конкретного provider для повторно используемых contract tests. */
 public interface ProviderFixture {
-    record Data(String documentType, String documentId, String changeToken, String taskId, String attribute) {}
+    record Data(String documentType, String documentId, String changeToken, String taskId, String attribute, String permission) {}
     DocumentStore documents();
     DocumentVersionStore versions();
     DocumentTypeProvider documentTypes();
@@ -26,7 +26,7 @@ public interface ProviderFixture {
     PermissionProvider permissions();
     AuthContext allowedAuth();
     AuthContext deniedAuth();
-    default Data data() { return new Data("TEST", "document-1", "token-1", "task-1", "title"); }
+    default Data data() { return new Data("TEST", "document-1", "token-1", "task-1", "title", "document:edit"); }
     void seed(DocumentSnapshot document, DocumentVersion version);
     void seed(WorkflowTask task);
 }
