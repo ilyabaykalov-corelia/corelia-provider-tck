@@ -31,42 +31,45 @@ public abstract class ProviderContractTest {
 
     @BeforeEach void prepareFixture() {
         fixture = fixture();
-        fixture.seed(document(), version(1));
+        fixture.seed(document(fixture.data()), version(fixture.data(), 1));
     }
 
     @Test void readsAndSearchesDocument() {
-        assertEquals("document-1", fixture.documents().get("TEST", "document-1", fixture.allowedAuth()).id());
-        assertEquals(1, fixture.documents().search(new DocumentSearchRequest("TEST", 0, 10), fixture.allowedAuth()).items().size());
-        assertEquals("TEST", fixture.documentTypes().available(fixture.allowedAuth()).getFirst().code());
+        var data = fixture.data();
+        assertEquals(data.documentId(), fixture.documents().get(data.documentType(), data.documentId(), fixture.allowedAuth()).id());
+        assertEquals(1, fixture.documents().search(new DocumentSearchRequest(data.documentType(), 0, 10), fixture.allowedAuth()).items().size());
+        assertEquals(data.documentType(), fixture.documentTypes().available(fixture.allowedAuth()).getFirst().code());
     }
 
     @Test void updatesVersionsWithOptimisticLockAndIdempotency() {
-        var mutation = new DocumentMutation("document-1", "TEST", 1, "token-1", Map.of("title", object("value", "новое")),
-                version(2), null, null, null, "request-1", "hash-1", object("ok", true));
+        var data = fixture.data();
+        var mutation = new DocumentMutation(data.documentId(), data.documentType(), 1, data.changeToken(), Map.of("title", object("value", "новое")),
+                version(data, 2), null, null, null, "request-1", "hash-1", object("ok", true));
         fixture.versions().commit(mutation, fixture.allowedAuth());
-        assertEquals(2, fixture.versions().state("TEST", "document-1", fixture.allowedAuth()).document().currentVersion());
-        assertEquals(2, fixture.versions().documentVersions("document-1", fixture.allowedAuth()).size());
+        assertEquals(2, fixture.versions().state(data.documentType(), data.documentId(), fixture.allowedAuth()).document().currentVersion());
+        assertEquals(2, fixture.versions().documentVersions(data.documentId(), fixture.allowedAuth()).size());
         fixture.versions().commit(mutation, fixture.allowedAuth());
         assertNotNull(fixture.versions().receipt("request-1", fixture.allowedAuth()));
         assertThrows(ApiException.class, () -> fixture.versions().commit(
-                new DocumentMutation("document-1", "TEST", 1, "token-1", Map.of(), version(3), null, null, null,
+                new DocumentMutation(data.documentId(), data.documentType(), 1, data.changeToken(), Map.of(), version(data, 3), null, null, null,
                         "request-2", "hash-2", object()), fixture.allowedAuth()));
     }
 
     @Test void storesAndReadsAttachmentContent() throws Exception {
-        var stored = fixture.storage().store(new BinaryStoreRequest("document-1", "attachment-1", "file.txt", "text/plain", 4, "sum"),
+        var stored = fixture.storage().store(new BinaryStoreRequest(fixture.data().documentId(), "attachment-1", "file.txt", "text/plain", 4, "sum"),
                 new ByteArrayInputStream("data".getBytes(StandardCharsets.UTF_8)), fixture.allowedAuth());
         assertEquals("data", new String(fixture.storage().read(stored.reference(), fixture.allowedAuth()).readAllBytes(), StandardCharsets.UTF_8));
     }
 
     @Test void startsWorkflowAndCompletesTask() {
-        var process = fixture.workflows().start(new WorkflowContext("document-1", "TEST", Map.of(), "user", "key", null, "create", "hash"), fixture.allowedAuth());
+        var data = fixture.data();
+        var process = fixture.workflows().start(new WorkflowContext(data.documentId(), data.documentType(), Map.of(), "user", "key", null, "create", "hash"), fixture.allowedAuth());
         assertEquals("STARTED", fixture.workflows().process(process.id(), fixture.allowedAuth()).state());
-        fixture.seed(task());
+        fixture.seed(task(data));
         assertEquals(1, fixture.tasks().search(new TaskSearchRequest(java.util.Set.of("NEW")), fixture.allowedAuth()).size());
-        fixture.tasks().start("task-1", fixture.allowedAuth());
-        fixture.tasks().complete("task-1", Map.of(), fixture.allowedAuth());
-        assertEquals("COMPLETED", fixture.tasks().task("task-1", fixture.allowedAuth()).status());
+        fixture.tasks().start(data.taskId(), fixture.allowedAuth());
+        fixture.tasks().complete(data.taskId(), Map.of(), fixture.allowedAuth());
+        assertEquals("COMPLETED", fixture.tasks().task(data.taskId(), fixture.allowedAuth()).status());
     }
 
     @Test void enforcesPermissions() {
@@ -74,15 +77,15 @@ public abstract class ProviderContractTest {
         assertThrows(ApiException.class, () -> fixture.permissions().require("document:edit", fixture.deniedAuth()));
     }
 
-    private static DocumentSnapshot document() {
-        return new DocumentSnapshot("document-1", "TEST", "DRAFT", 1, Map.of("title", object("value", "исходное")), "user", Instant.EPOCH, "token-1");
+    private static DocumentSnapshot document(ProviderFixture.Data data) {
+        return new DocumentSnapshot(data.documentId(), data.documentType(), "DRAFT", 1, Map.of("title", object("value", "исходное")), "user", Instant.EPOCH, data.changeToken());
     }
 
-    private static DocumentVersion version(int number) {
-        return new DocumentVersion("version-" + number, "document-1", number, 1, Map.of("title", object("value", "v" + number)), "DRAFT", Instant.EPOCH, "user", null, List.of());
+    private static DocumentVersion version(ProviderFixture.Data data, int number) {
+        return new DocumentVersion("version-" + number, data.documentId(), number, 1, Map.of("title", object("value", "v" + number)), "DRAFT", Instant.EPOCH, "user", null, List.of());
     }
 
-    private static WorkflowTask task() {
-        return new WorkflowTask("task-1", "document-1", "TEST", "NEW", "user", "Пользователь", "editor", "Задача", "", Map.of(), List.of());
+    private static WorkflowTask task(ProviderFixture.Data data) {
+        return new WorkflowTask(data.taskId(), data.documentId(), data.documentType(), "NEW", "user", "Пользователь", "editor", "Задача", "", Map.of(), List.of());
     }
 }
