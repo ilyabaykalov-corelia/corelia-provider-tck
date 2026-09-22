@@ -43,7 +43,7 @@ public abstract class ProviderContractTest {
 
     @Test void updatesVersionsWithOptimisticLockAndIdempotency() {
         var data = fixture.data();
-        var mutation = new DocumentMutation(data.documentId(), data.documentType(), 1, data.changeToken(), Map.of("title", object("value", "новое")),
+        var mutation = new DocumentMutation(data.documentId(), data.documentType(), 1, data.changeToken(), Map.of(data.attribute(), object("value", "новое")),
                 version(data, 2), null, null, null, "request-1", "hash-1", object("ok", true));
         fixture.versions().commit(mutation, fixture.allowedAuth());
         assertEquals(2, fixture.versions().state(data.documentType(), data.documentId(), fixture.allowedAuth()).document().currentVersion());
@@ -78,11 +78,11 @@ public abstract class ProviderContractTest {
     }
 
     private static DocumentSnapshot document(ProviderFixture.Data data) {
-        return new DocumentSnapshot(data.documentId(), data.documentType(), "DRAFT", 1, Map.of("title", object("value", "исходное")), "user", Instant.EPOCH, data.changeToken());
+        return new DocumentSnapshot(data.documentId(), data.documentType(), "DRAFT", 1, Map.of(data.attribute(), object("value", "исходное")), "user", Instant.EPOCH, data.changeToken());
     }
 
     private static DocumentVersion version(ProviderFixture.Data data, int number) {
-        return new DocumentVersion("version-" + number, data.documentId(), number, 1, Map.of("title", object("value", "v" + number)), "DRAFT", Instant.EPOCH, "user", null, List.of());
+        return new DocumentVersion("version-" + number, data.documentId(), number, 1, Map.of(data.attribute(), object("value", "v" + number)), "DRAFT", Instant.EPOCH, "user", null, List.of());
     }
 
     private static WorkflowTask task(ProviderFixture.Data data) {
