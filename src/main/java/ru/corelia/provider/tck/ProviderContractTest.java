@@ -81,12 +81,12 @@ public abstract class ProviderContractTest {
         var state = fixture.versions().state(data.documentType(), data.documentId(), fixture.allowedAuth());
         var replacement = attachment(data, "attachment-2", initial.logicalId(), 2);
         fixture.versions().commit(new DocumentMutation(data.documentId(), data.documentType(), state.document().currentVersion(), state.document().changeToken(),
-                Map.of(), null, version(data, 1, List.of(replacement)), replacement, initial, "attachment-replace", "hash-replace", object()), fixture.allowedAuth());
+                Map.of(), version(data, 3, List.of(replacement)), state.currentVersion(), replacement, initial, "attachment-replace", "hash-replace", object("changeToken", "token-3")), fixture.allowedAuth());
         assertEquals(2, fixture.attachments().attachmentVersions(replacement.id(), fixture.allowedAuth()).size());
 
         state = fixture.versions().state(data.documentType(), data.documentId(), fixture.allowedAuth());
         fixture.versions().commit(new DocumentMutation(data.documentId(), data.documentType(), state.document().currentVersion(), state.document().changeToken(),
-                Map.of(), null, version(data, 1, List.of()), null, replacement, "attachment-delete", "hash-delete", object()), fixture.allowedAuth());
+                Map.of(), version(data, 4, List.of()), state.currentVersion(), null, replacement, "attachment-delete", "hash-delete", object("changeToken", "token-4")), fixture.allowedAuth());
         assertFalse(fixture.versions().attachments(data.documentId(), fixture.allowedAuth()).stream().anyMatch(AttachmentMetadata::current));
     }
 
@@ -129,8 +129,10 @@ public abstract class ProviderContractTest {
 
     private static DocumentMutation attachmentMutation(ProviderFixture.Data data, AttachmentMetadata created, AttachmentMetadata retired,
                                                         DocumentVersion closed, String key) {
-        return new DocumentMutation(data.documentId(), data.documentType(), 1, data.changeToken(), Map.of(), null, closed, created, retired,
-                key, "hash-" + key, object());
+        int nextNumber = closed.number() + 1;
+        return new DocumentMutation(data.documentId(), data.documentType(), closed.number(), data.changeToken(), Map.of(),
+                version(data, nextNumber, created == null ? List.of() : List.of(created)), closed, created, retired,
+                key, "hash-" + key, object("changeToken", "token-" + nextNumber));
     }
 
     private static WorkflowTask task(ProviderFixture.Data data) {
