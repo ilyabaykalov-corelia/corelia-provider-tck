@@ -55,10 +55,11 @@ public abstract class ProviderContractTest {
     @Test void updatesVersionsWithOptimisticLockAndIdempotency() {
         var data = fixture.data();
         var mutation = new DocumentMutation(data.documentId(), data.documentType(), 1, data.changeToken(), Map.of(data.attribute(), object("value", "новое")),
-                version(data, 2), version(data, 1), null, null, "request-1", "hash-1", object("ok", true));
+                version(data, 2), version(data, 1), null, null, "request-1", "hash-1", object("ok", true), object("action", "update"));
         fixture.versions().commit(mutation, fixture.allowedAuth());
         assertEquals(2, fixture.versions().state(data.documentType(), data.documentId(), fixture.allowedAuth()).document().currentVersion());
         assertEquals(2, fixture.versions().documentVersions(data.documentId(), fixture.allowedAuth()).size());
+        assertEquals(1, fixture.versions().history(data.documentId(), fixture.allowedAuth()).size());
         fixture.versions().commit(mutation, fixture.allowedAuth());
         assertNotNull(fixture.versions().receipt("request-1", fixture.allowedAuth()));
         assertThrows(ApiException.class, () -> fixture.versions().commit(
@@ -94,6 +95,8 @@ public abstract class ProviderContractTest {
         var data = fixture.data();
         var process = fixture.workflows().start(new WorkflowContext(data.documentId(), data.documentType(), Map.of(), "user", "key", null, "create", "hash"), fixture.allowedAuth());
         assertNotNull(process.id());
+        assertFalse(process.engine().isBlank());
+        assertEquals(process, fixture.workflows().process(process.id(), fixture.allowedAuth()));
         fixture.seed(task(data));
         assertEquals(1, fixture.tasks().search(new TaskSearchRequest(java.util.Set.of("NEW")), fixture.allowedAuth()).size());
         fixture.tasks().start(data.taskId(), fixture.allowedAuth());
